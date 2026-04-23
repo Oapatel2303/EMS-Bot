@@ -2,6 +2,12 @@ require('dotenv').config(); // Loads your secret vault
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const admin = require('firebase-admin');
 
+const express = require('express');
+const app = express();
+app.get('/', (req, res) => res.send('EMS Bot is awake and running 24/7!'));
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`Dummy web server running on port ${port}`));
+
 // 1. Initialize Firebase using the secure Environment Variables
 admin.initializeApp({
   credential: admin.credential.cert({
