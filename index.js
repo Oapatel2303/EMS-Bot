@@ -1,0 +1,81 @@
+require('dotenv').config(); // Loads your secret vault
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const admin = require('firebase-admin');
+
+// 1. Initialize Firebase using the secure Environment Variables
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    // The replace() function fixes formatting issues with keys in the cloud
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') 
+  })
+});
+const db = admin.firestore();
+
+// 2. Initialize Discord Bot
+const client = new Client({ 
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] 
+});
+
+client.once('ready', () => {
+    console.log(`🤖 Logged in and monitoring database as ${client.user.tag}`);
+
+    // 3. The Database Watchdog
+    db.collection('applications').onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(async (change) => {
+            
+            // We only care when an application is MODIFIED
+            if (change.type === 'modified') {
+                const data = change.doc.data();
+
+                // Only trigger if it was just decided AND hasn't been notified yet
+                if ((data.status === 'Accepted' || data.status === 'Rejected') && !data.notified) {
+                    
+                    // 🛡️ THE SAFETY SHIELD: Ignore old or broken apps with no ID
+                    if (!data.discordId || data.discordId === "undefined" || String(data.discordId).trim() === "") {
+                        console.error(`⚠️ Skipping DM for ${data.characterName} - No valid Discord ID on file.`);
+                        // Mark it as notified so the bot doesn't get stuck in a loop trying to message them
+                        await change.doc.ref.update({ notified: true });
+                        return; 
+                    }
+
+                    try {
+                        // 🧹 THE CLEANER: Strips out any accidental spaces the user might have copy-pasted
+                        const cleanId = String(data.discordId).replace(/\D/g, '');
+                        
+                        // Fetch the user using the clean 18-digit ID
+                        const user = await client.users.fetch(cleanId);
+
+                        const embedColor = data.status === 'Accepted' ? 0x43a047 : 0xe53935;
+                        const embed = new EmbedBuilder()
+                            .setTitle(`📋 EMS Application ${data.status.toUpperCase()}`)
+                            .setDescription(`Hello ${data.characterName},\n\nYour recent application to Seasons EMS has been **${data.status}**.`)
+                            .setColor(embedColor)
+                            .setFooter({ text: 'Seasons Roleplay Command' })
+                            .setTimestamp();
+
+                        // Attach the optional Command Note if you typed one
+                        if (data.reason) {
+                            embed.addFields({ name: 'Command Note:', value: data.reason });
+                        }
+
+                        // Fire the DM
+                        await user.send({ embeds: [embed] });
+                        console.log(`✅ Successfully sent DM to ${data.discordName} (${cleanId})`);
+
+                        // Update Firebase so the bot knows this person was handled
+                        await change.doc.ref.update({ notified: true });
+
+                    } catch (error) {
+                        console.error(`❌ Failed to DM ${data.discordName}. They likely have DMs turned off or the ID is wrong.`, error.message);
+                        await change.doc.ref.update({ notified: true });
+                    }
+                }
+            }
+        });
+    });
+});
+
+// Paste your Discord Bot Token here
+client.login('MTQ5Njk3NjIwNDk5NjI4MDQwMQ.G2twCM.GSgoWE7LHbDT2CXCy9hwFjhKJzLIBBE-WVEmu8');
