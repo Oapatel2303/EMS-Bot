@@ -81,6 +81,58 @@ client.once('ready', () => {
             }
         });
     });
+
+    // 4. The FTO Database Watchdog
+    db.collection('fto_applications').onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(async (change) => {
+            
+            if (change.type === 'modified') {
+                const data = change.doc.data();
+
+                if ((data.status === 'Accepted' || data.status === 'Rejected') && !data.notified) {
+                    
+                    if (!data.discordId || data.discordId === "undefined" || String(data.discordId).trim() === "") {
+                        await change.doc.ref.update({ notified: true });
+                        return; 
+                    }
+
+                    try {
+                        const cleanId = String(data.discordId).replace(/\D/g, '');
+                        const user = await client.users.fetch(cleanId);
+
+                        const embedColor = data.status === 'Accepted' ? 0x43a047 : 0xe53935;
+                        
+                        // Custom text based on accept or reject
+                        const nextSteps = data.status === 'Accepted' 
+                            ? 'Please open a support ticket in the Discord to continue the promotion process.' 
+                            : 'Thank you for your interest and dedication to the department.';
+
+                        const embed = new EmbedBuilder()
+                            .setTitle(`⭐ FTO Application ${data.status.toUpperCase()}`)
+                            .setDescription(`Hello ${data.medicName},\n\nYour recent application for Field Training Officer has been **${data.status}**.\n\n${nextSteps}`)
+                            .setColor(embedColor)
+                            .setFooter({ text: 'Seasons Roleplay Command' })
+                            .setTimestamp();
+
+                        if (data.reason) {
+                            embed.addFields({ name: 'Command Note:', value: data.reason });
+                        }
+
+                        await user.send({ embeds: [embed] });
+                        console.log(`✅ Successfully sent FTO DM to ${data.discordName} (${cleanId})`);
+
+                        await change.doc.ref.update({ notified: true });
+
+                    } catch (error) {
+                        console.error(`❌ Failed to DM ${data.discordName}.`, error.message);
+                        await change.doc.ref.update({ notified: true });
+                    }
+                }
+            }
+        });
+    });
+
+    
 });
 
 // Paste your Discord Bot Token here
