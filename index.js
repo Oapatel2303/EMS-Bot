@@ -135,5 +135,4 @@ client.once('ready', () => {
     
 });
 
-// Paste your Discord Bot Token here
-client.login('MTQ5Njk3NjIwNDk5NjI4MDQwMQ.G2twCM.GSgoWE7LHbDT2CXCy9hwFjhKJzLIBBE-WVEmu8');
+client.login(process.env.DISCORD_TOKEN);
