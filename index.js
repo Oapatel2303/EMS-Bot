@@ -31,12 +31,13 @@ client.once('ready', () => {
     db.collection('applications').onSnapshot(snapshot => {
         snapshot.docChanges().forEach(async (change) => {
             
-            // We only care when an application is MODIFIED
             if (change.type === 'modified') {
                 const data = change.doc.data();
+                
+                if (data.notified === true) return; 
 
-                // Only trigger if it was just decided AND hasn't been notified yet
-                if ((data.status === 'Accepted' || data.status === 'Rejected') && !data.notified) {
+                // Only trigger if it was just decided
+                if (data.status === 'Accepted' || data.status === 'Rejected') {
                     
                     if (!data.discordId || data.discordId === "undefined" || String(data.discordId).trim() === "") {
                         console.error(`⚠️ Skipping DM for ${data.characterName} - No valid Discord ID on file.`);
