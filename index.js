@@ -85,14 +85,17 @@ client.once('ready', () => {
         });
     });
 
-    // 4. The FTO Database Watchdog
+// 4. The FTO Database Watchdog
     db.collection('fto_applications').onSnapshot(snapshot => {
         snapshot.docChanges().forEach(async (change) => {
             
             if (change.type === 'modified') {
                 const data = change.doc.data();
+                
+                // THE FIX: Ignore updates where the bot is just marking it as notified
+                if (data.notified === true) return; 
 
-                if ((data.status === 'Accepted' || data.status === 'Rejected') && !data.notified) {
+                if (data.status === 'Accepted' || data.status === 'Rejected') {
                     
                     if (!data.discordId || data.discordId === "undefined" || String(data.discordId).trim() === "") {
                         await change.doc.ref.update({ notified: true });
