@@ -38,7 +38,6 @@ client.once('ready', () => {
                 // Only trigger if it was just decided AND hasn't been notified yet
                 if ((data.status === 'Accepted' || data.status === 'Rejected') && !data.notified) {
                     
-                    // 🛡️ THE SAFETY SHIELD: Ignore old or broken apps with no ID
                     if (!data.discordId || data.discordId === "undefined" || String(data.discordId).trim() === "") {
                         console.error(`⚠️ Skipping DM for ${data.characterName} - No valid Discord ID on file.`);
                         // Mark it as notified so the bot doesn't get stuck in a loop trying to message them
@@ -47,21 +46,25 @@ client.once('ready', () => {
                     }
 
                     try {
-                        // 🧹 THE CLEANER: Strips out any accidental spaces the user might have copy-pasted
                         const cleanId = String(data.discordId).replace(/\D/g, '');
                         
                         // Fetch the user using the clean 18-digit ID
                         const user = await client.users.fetch(cleanId);
 
                         const embedColor = data.status === 'Accepted' ? 0x43a047 : 0xe53935;
+                        
+                        // text based on accept or reject
+                        const nextSteps = data.status === 'Accepted' 
+                            ? 'Please open an interview ticket in the Discord to schedule your interview with Command.' 
+                            : 'Thank you for your interest in Seasons EMS. Unfortunately, we will not be moving forward at this time.';
+
                         const embed = new EmbedBuilder()
                             .setTitle(`📋 EMS Application ${data.status.toUpperCase()}`)
-                            .setDescription(`Hello ${data.characterName},\n\nYour recent application to Seasons EMS has been **${data.status}**.`)
+                            .setDescription(`Hello ${data.characterName},\n\nYour recent application to Seasons EMS has been **${data.status}**.\n\n${nextSteps}`)
                             .setColor(embedColor)
                             .setFooter({ text: 'Seasons Roleplay Command' })
                             .setTimestamp();
 
-                        // Attach the optional Command Note if you typed one
                         if (data.reason) {
                             embed.addFields({ name: 'Command Note:', value: data.reason });
                         }
